@@ -360,7 +360,7 @@ export class ElectrumWS extends Observable {
 
     if (this.verbose)
       console.debug(
-        'Failed to parse JSON, retrying together with next message'
+        `Failed to parse JSON, retrying together with next message: "${line}"`
       );
     this.incompleteMessage = line;
     return false;
