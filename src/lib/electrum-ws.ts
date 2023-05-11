@@ -170,7 +170,9 @@ export class ElectrumWS extends Observable {
     return new Promise<ResponseType>((resolve, reject) => {
       const timeout = setTimeout(() => {
         this.requests.delete(id);
-        reject(new Error('Request timeout'));
+        reject(
+          new Error(`ElectrumWS request timeout. request ID: ${id} (${method})`)
+        );
       }, REQUEST_TIMEOUT);
 
       this.requests.set(id, {
@@ -305,6 +307,12 @@ export class ElectrumWS extends Observable {
       const response = this.parseLine(line);
       if (!response) continue;
       this.fire(ElectrumWSEvent.MESSAGE, response);
+
+      if (typeof response !== 'object') {
+        if (this.verbose)
+          console.debug('received a non-JSON response:', response);
+        continue;
+      }
 
       if ('id' in response && this.requests.has(response.id)) {
         const request = this.requests.get(response.id);
