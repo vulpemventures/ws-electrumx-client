@@ -170,7 +170,9 @@ export class ElectrumWS extends Observable {
     return new Promise<ResponseType>((resolve, reject) => {
       const timeout = setTimeout(() => {
         this.requests.delete(id);
-        reject(new Error('Request timeout'));
+        reject(
+          new Error(`ElectrumWS request timeout. request ID: ${id} (${method})`)
+        );
       }, REQUEST_TIMEOUT);
 
       this.requests.set(id, {
@@ -306,6 +308,12 @@ export class ElectrumWS extends Observable {
       if (!response) continue;
       this.fire(ElectrumWSEvent.MESSAGE, response);
 
+      if (typeof response !== 'object') {
+        if (this.verbose)
+          console.debug('received a non-JSON response:', response);
+        continue;
+      }
+
       if ('id' in response && this.requests.has(response.id)) {
         const request = this.requests.get(response.id);
         clearTimeout(request.timeout);
@@ -348,8 +356,10 @@ export class ElectrumWS extends Observable {
   private parseLine(line: string): RpcResponse | RpcRequest | false {
     try {
       const parsed = JSON.parse(line);
-      this.incompleteMessage = '';
-      return parsed;
+      if (typeof parsed === 'object') {
+        this.incompleteMessage = '';
+        return parsed;
+      }
     } catch (error) {
       // Ignore
     }
@@ -360,7 +370,7 @@ export class ElectrumWS extends Observable {
 
     if (this.verbose)
       console.debug(
-        'Failed to parse JSON, retrying together with next message'
+        `Failed to parse JSON, retrying together with next message: "${line}"`
       );
     this.incompleteMessage = line;
     return false;
