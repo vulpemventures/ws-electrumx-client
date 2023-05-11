@@ -356,8 +356,10 @@ export class ElectrumWS extends Observable {
   private parseLine(line: string): RpcResponse | RpcRequest | false {
     try {
       const parsed = JSON.parse(line);
-      this.incompleteMessage = '';
-      return parsed;
+      if (typeof parsed === 'object') {
+        this.incompleteMessage = '';
+        return parsed;
+      }
     } catch (error) {
       // Ignore
     }
