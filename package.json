@@ -1,6 +1,6 @@
 {
   "name": "ws-electrumx-client",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Light electrum x websocket client",
   "main": "build/main/index.js",
   "typings": "build/main/index.d.ts",
