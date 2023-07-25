@@ -2,6 +2,7 @@
 import WebSocket from 'isomorphic-ws';
 
 import { Observable } from './observable';
+import { RPCError } from './rpc-error';
 
 export type RpcResponse = {
   jsonrpc: string;
@@ -15,11 +16,33 @@ export type RpcResponse = {
   id: number;
 };
 
+export function isRpcResponse(obj: unknown): obj is RpcResponse {
+  return (
+    typeof obj === 'object' &&
+    obj !== null &&
+    'jsonrpc' in obj &&
+    typeof obj['jsonrpc'] === 'string' &&
+    'id' in obj &&
+    typeof obj['id'] === 'number'
+  );
+}
+
 export type RpcRequest = {
   jsonrpc: string; // jsonrpc version, should be 2.0
   method: string; // electrum method name
   params?: unknown[]; // electrum method parameters
 };
+
+export function isRpcRequest(obj: unknown): obj is RpcRequest {
+  return (
+    typeof obj === 'object' &&
+    obj !== null &&
+    'jsonrpc' in obj &&
+    typeof obj['jsonrpc'] === 'string' &&
+    'method' in obj &&
+    typeof obj['method'] === 'string'
+  );
+}
 
 // options for ElectrumWS constructor
 export type ElectrumWSOptions = {
@@ -211,6 +234,7 @@ export class ElectrumWS extends Observable {
     const deleted = this.subscriptions.delete(subscriptionKey);
 
     if (deleted) return this.request(`${method}.unsubscribe`, ...params);
+    return Promise.resolve();
   }
 
   // whether the websocket connection is open
@@ -322,13 +346,17 @@ export class ElectrumWS extends Observable {
         if ('result' in response) {
           request.resolve(response.result);
         } else if (response.error) {
-          request.reject(
-            new Error(
-              typeof response.error === 'string'
-                ? response.error
-                : response.error.message
-            )
-          );
+          const errorMsg =
+            typeof response.error === 'string'
+              ? response.error
+              : response.error.message;
+
+          try {
+            const rpcError = new RPCError(errorMsg);
+            request.reject(rpcError);
+          } catch (e) {
+            request.reject(new Error(errorMsg));
+          }
         } else {
           request.reject(new Error('No result'));
         }
@@ -356,12 +384,13 @@ export class ElectrumWS extends Observable {
   private parseLine(line: string): RpcResponse | RpcRequest | false {
     try {
       const parsed = JSON.parse(line);
-      if (typeof parsed === 'object') {
+      if (isRpcResponse(parsed) || isRpcRequest(parsed)) {
         this.incompleteMessage = '';
         return parsed;
       }
-    } catch (error) {
-      // Ignore
+    } catch {
+      // ignore
+      if (this.verbose) console.debug('Failed to parse:', line);
     }
 
     if (this.incompleteMessage && !line.includes(this.incompleteMessage)) {

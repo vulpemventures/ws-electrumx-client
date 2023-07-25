@@ -60,7 +60,7 @@ test('should be able to send multiple requests using batchRequest', async (t) =>
   t.pass();
 });
 
-test('should throw an error if the method name is invalid', async (t) => {
+test('should throw an error if the method name is unsupported', async (t) => {
   const electrum = new ElectrumWS(localURL);
   await t.throwsAsync(async () => {
     await electrum.request<number>(
@@ -73,8 +73,9 @@ test('should throw an error if the method name is invalid', async (t) => {
 
 test('should throw and error if the request parameters are invalid', async (t) => {
   const electrum = new ElectrumWS(localURL);
-  await t.throwsAsync(async () => {
+  const error = await t.throwsAsync(async () => {
     await electrum.request<number>('blockchain.estimatefee', [1]); // should be a number, not an array
   });
+  t.is(error.message, 'non-integerblocks_count');
   t.pass();
 });
